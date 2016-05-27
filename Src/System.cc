@@ -66,14 +66,16 @@ void System::Run()
       // and one RGB, for drawing.
 
       // Grab new video frame...
+	  // µÃµ½ÊÓÆµ
       mVideoSource.GetAndFillFrameBWandRGB(mimFrameBW, mimFrameRGB);  
       static bool bFirstFrame = true;
       if(bFirstFrame)
-	{
+	 {
 	  mpARDriver->Init();
 	  bFirstFrame = false;
-	}
+	 }
       
+	  //GLÉèÖÃ
       mGLWindow.SetupViewport();
       mGLWindow.SetupVideoOrtho();
       mGLWindow.SetupVideoRasterPosAndZoom();
@@ -87,14 +89,17 @@ void System::Run()
       bool bDrawMap = mpMap->IsGood() && *gvnDrawMap;
       bool bDrawAR = mpMap->IsGood() && *gvnDrawAR;
       
+	  //¸ú×ÙÖ¡
       mpTracker->TrackFrame(mimFrameBW, !bDrawAR && !bDrawMap);
       
+	  //ÊÇ·ñÒª»­Í¼
       if(bDrawMap)
 	mpMapViewer->DrawMap(mpTracker->GetCurrentPose());
       else if(bDrawAR)
 	mpARDriver->Render(mimFrameRGB, mpTracker->GetCurrentPose());
 
       //      mGLWindow.GetMousePoseUpdate();
+	  //»­Í¼
       string sCaption;
       if(bDrawMap)
 	sCaption = mpMapViewer->GetMessageForUser();

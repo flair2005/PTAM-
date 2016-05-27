@@ -58,6 +58,7 @@ public:
   // It also calculates which pyramid level we should search in, and this is
   // returned as an int. Negative level returned denotes an inappropriate 
   // transformation.
+  // 计算仿射变换和相应的搜索金字塔层数
   int CalcSearchLevelAndWarpMatrix(MapPoint &p, SE3<> se3CFromW, Matrix<2> &m2CamDerivs);
   inline int GetLevel() { return mnSearchLevel; }
   inline int GetLevelScale() { return LevelScale(mnSearchLevel); }

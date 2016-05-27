@@ -58,6 +58,7 @@ void MapMaker::Reset()
 // what it's doing and reset, if required.
 #define CHECK_RESET if(mbResetRequested) {Reset(); continue;};
 
+//地图主线程
 void MapMaker::run()
 {
 
@@ -132,10 +133,12 @@ bool MapMaker::ResetDone()
 
 // HandleBadPoints() Does some heuristic checks on all points in the map to see if 
 // they should be flagged as bad, based on tracker feedback.
+//对地图中的一些坏点进行处理
 void MapMaker::HandleBadPoints()
 {
   // Did the tracker see this point as an outlier more often than as an inlier?
-  for(unsigned int i=0; i<mMap.vpPoints.size(); i++)
+   //找出地图中的坏点
+   for(unsigned int i=0; i<mMap.vpPoints.size(); i++)
     {
       MapPoint &p = *mMap.vpPoints[i];
       if(p.nMEstimatorOutlierCount > 20 && p.nMEstimatorOutlierCount > p.nMEstimatorInlierCount)
@@ -144,6 +147,7 @@ void MapMaker::HandleBadPoints()
   
   // All points marked as bad will be erased - erase all records of them
   // from keyframes in which they might have been measured.
+  //对地图中的每个坏点，找到所有包含这个点的关键帧，从关键帧中删去当前的坏点
   for(unsigned int i=0; i<mMap.vpPoints.size(); i++)
     if(mMap.vpPoints[i]->bBad)
       {
@@ -156,6 +160,7 @@ void MapMaker::HandleBadPoints()
 	  }
       }
   // Move bad points to the trash list.
+  //把换点移到trash中去，不直接删除是给第二次机会来重新检测
   mMap.MoveBadPointsToTrash();
 }
 
@@ -193,16 +198,18 @@ Vector<3> MapMaker::ReprojectPoint(SE3<> se3AfromB, const Vector<2> &v2A, const 
 
 // InitFromStereo() generates the initial match from two keyframes
 // and a vector of image correspondences. Uses the 
-bool MapMaker::InitFromStereo(KeyFrame &kF,
-			      KeyFrame &kS,
-			      vector<pair<ImageRef, ImageRef> > &vTrailMatches,
-			      SE3<> &se3TrackerPose)
+// 地图初始化
+bool MapMaker::InitFromStereo(KeyFrame &kF,  							//第一帧关键帧
+			      KeyFrame &kS,											//第二帧关键帧
+			      vector<pair<ImageRef, ImageRef> > &vTrailMatches,	    //匹配
+			      SE3<> &se3TrackerPose)                                //tracker给出的两帧之间的位置关系 
 {
   mdWiggleScale = *mgvdWiggleScale; // Cache this for the new map.
 
   mCamera.SetImageSize(kF.aLevels[0].im.size());
 
   
+  //得到对应的单应矩阵匹配
   vector<HomographyMatch> vMatches;
   for(unsigned int i=0; i<vTrailMatches.size(); i++)
     {
@@ -213,6 +220,7 @@ bool MapMaker::InitFromStereo(KeyFrame &kF,
       vMatches.push_back(m);
     }
 
+  //根据单应匹配，计算出对应的SE3
   SE3<> se3;
   bool bGood;
   HomographyInit HomographyInit;
@@ -224,6 +232,7 @@ bool MapMaker::InitFromStereo(KeyFrame &kF,
     }
   
   // Check that the initialiser estimated a non-zero baseline
+  // 计算两帧之间的基线长度
   double dTransMagn = sqrt(se3.get_translation() * se3.get_translation());
   if(dTransMagn == 0)
     {
@@ -231,21 +240,26 @@ bool MapMaker::InitFromStereo(KeyFrame &kF,
       return false;
     }
   // change the scale of the map so the second camera is wiggleScale away from the first
+  // 确定地图的尺度
   se3.get_translation() *= mdWiggleScale/dTransMagn;
 
   
+  //初始化前两帧之间的信息
   KeyFrame *pkFirst = new KeyFrame();
   KeyFrame *pkSecond = new KeyFrame();
   *pkFirst = kF;
   *pkSecond = kS;
   
+  //第一帧的坐标为I
   pkFirst->bFixed = true;
   pkFirst->se3CfromW = SE3<>();
   
+  //第二帧的坐标为se3
   pkSecond->bFixed = false;
   pkSecond->se3CfromW = se3;
   
   // Construct map from the stereo matches.
+  // 从前面的两个匹配中构建初始地图
   PatchFinder finder;
 
   for(unsigned int i=0; i<vMatches.size(); i++)
@@ -257,7 +271,7 @@ bool MapMaker::InitFromStereo(KeyFrame &kF,
       p->nSourceLevel = 0;
       p->v3Normal_NC = makeVector( 0,0,-1);
       p->irCenter = vTrailMatches[i].first;
-      p->v3Center_NC = unproject(mCamera.UnProject(p->irCenter));
+      p->v3Center_NC = unproject(mCamera.UnProject(p->irCenter));  							//unproject  把摄像机z=1平面内的点投影到摄像机坐标系。
       p->v3OneDownFromCenter_NC = unproject(mCamera.UnProject(p->irCenter + ImageRef(0,1)));
       p->v3OneRightFromCenter_NC = unproject(mCamera.UnProject(p->irCenter + ImageRef(1,0)));
       normalize(p->v3Center_NC);
@@ -349,6 +363,7 @@ bool MapMaker::InitFromStereo(KeyFrame &kF,
 // to make a new map point by epipolar search. We don't want to make new points
 // where there are already existing map points, this routine erases such candidates.
 // Operates on a single level of a keyframe.
+// 去除一些早就在地图中的点
 void MapMaker::ThinCandidates(KeyFrame &k, int nLevel)
 {
   vector<Candidate> &vCSrc = k.aLevels[nLevel].vCandidates;
@@ -400,6 +415,7 @@ void MapMaker::AddSomeMapPoints(int nLevel)
 };
 
 // Rotates/translates the whole map and all keyframes
+// 移动整个地图的关键帧
 void MapMaker::ApplyGlobalTransformationToMap(SE3<> se3NewFromOld)
 {
   for(unsigned int i=0; i<mMap.vpKeyFrames.size(); i++)
@@ -415,6 +431,7 @@ void MapMaker::ApplyGlobalTransformationToMap(SE3<> se3NewFromOld)
 }
 
 // Applies a global scale factor to the map
+// 调整整个地图的尺度
 void MapMaker::ApplyGlobalScaleToMap(double dScale)
 {
   for(unsigned int i=0; i<mMap.vpKeyFrames.size(); i++)
@@ -433,6 +450,7 @@ void MapMaker::ApplyGlobalScaleToMap(double dScale)
 // the tracker thread doesn't want to hang about, so 
 // just dumps it on the top of the mapmaker's queue to 
 // be dealt with later, and return.
+// 加入一个关键帧
 void MapMaker::AddKeyFrame(KeyFrame &k)
 {
   KeyFrame *pK = new KeyFrame;
@@ -477,6 +495,7 @@ void MapMaker::AddKeyFrameFromTopOfQueue()
 // Tries to make a new map point out of a single candidate point
 // by searching for that point in another keyframe, and triangulating
 // if a match is found.
+// 在其他帧中用极线约束来搜索特征点
 bool MapMaker::AddPointEpipolar(KeyFrame &kSrc, 
 				KeyFrame &kTarget, 
 				int nLevel,
@@ -631,6 +650,7 @@ bool MapMaker::AddPointEpipolar(KeyFrame &kSrc,
   return true;
 }
 
+//求两帧之间的线性距离 即平移距离
 double MapMaker::KeyFrameLinearDist(KeyFrame &k1, KeyFrame &k2)
 {
   Vector<3> v3KF1_CamPos = k1.se3CfromW.inverse().get_translation();
@@ -640,6 +660,7 @@ double MapMaker::KeyFrameLinearDist(KeyFrame &k1, KeyFrame &k2)
   return dDist;
 }
 
+//找到N帧最近的关键帧
 vector<KeyFrame*> MapMaker::NClosestKeyFrames(KeyFrame &k, unsigned int N)
 {
   vector<pair<double, KeyFrame* > > vKFandScores;
@@ -660,6 +681,7 @@ vector<KeyFrame*> MapMaker::NClosestKeyFrames(KeyFrame &k, unsigned int N)
   return vResult;
 }
 
+//找到最近的关键帧
 KeyFrame* MapMaker::ClosestKeyFrame(KeyFrame &k)
 {
   double dClosestDist = 9999999999.9;
@@ -679,6 +701,7 @@ KeyFrame* MapMaker::ClosestKeyFrame(KeyFrame &k)
   return mMap.vpKeyFrames[nClosest];
 }
 
+//跟最近的关键帧之间的距离
 double MapMaker::DistToNearestKeyFrame(KeyFrame &kCurrent)
 {
   KeyFrame *pClosest = ClosestKeyFrame(kCurrent);
@@ -686,6 +709,7 @@ double MapMaker::DistToNearestKeyFrame(KeyFrame &kCurrent)
   return dDist;
 }
 
+//判断当前帧是否为关键帧
 bool MapMaker::NeedNewKeyFrame(KeyFrame &kCurrent)
 {
   KeyFrame *pClosest = ClosestKeyFrame(kCurrent);
@@ -1011,6 +1035,7 @@ void MapMaker::ReFindNewlyMade()
 };
 
 // Dud measurements get a second chance.
+// 给加入了Trash中的bad point第二次机会
 void MapMaker::ReFindFromFailureQueue()
 {
   if(mvFailureQueue.size() == 0)
@@ -1139,6 +1164,7 @@ SE3<> MapMaker::CalcPlaneAligner()
 // Calculates the depth(z-) distribution of map points visible in a keyframe
 // This function is only used for the first two keyframes - all others
 // get this filled in by the tracker
+// 计算关键帧的深度平均值和深度的方差
 void MapMaker::RefreshSceneDepth(KeyFrame *pKF)
 {
   double dSumDepth = 0.0;

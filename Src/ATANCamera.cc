@@ -106,6 +106,7 @@ void ATANCamera::RefreshParams()
 
 // Project from the camera z=1 plane to image pixels,
 // while storing intermediate calculation results in member variables
+// 把位于Z=1的摄像机平面的坐标，投影到图像平面
 Vector<2> ATANCamera::Project(const Vector<2>& vCam){
   mvLastCam = vCam;
   mdLastR = sqrt(vCam * vCam);
@@ -122,6 +123,7 @@ Vector<2> ATANCamera::Project(const Vector<2>& vCam){
 
 // Un-project from image pixel coords to the camera z=1 plane
 // while storing intermediate calculation results in member variables
+// 把图像平面的坐标，投影到Z=1的摄像机平面的坐标
 Vector<2> ATANCamera::UnProject(const Vector<2>& v2Im)
 {
   mvLastIm = v2Im;

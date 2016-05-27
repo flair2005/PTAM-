@@ -83,6 +83,7 @@ void Tracker::Reset()
 // It figures out what state the tracker is in, and calls appropriate internal tracking
 // functions. bDraw tells the tracker wether it should output any GL graphics
 // or not (it should not draw, for example, when AR stuff is being shown.)
+// Tracker线程的主函数，跟踪摄像头输入的每帧
 void Tracker::TrackFrame(Image<byte> &imFrame, bool bDraw)
 {
   mbDraw = bDraw;
@@ -128,28 +129,29 @@ void Tracker::TrackFrame(Image<byte> &imFrame, bool bDraw)
   if(mMap.IsGood())
     {
       if(mnLostFrames < 3)  // .. but only if we're not lost!
-	{
-	  if(mbUseSBIInit)
-	    CalcSBIRotation();
-	  ApplyMotionModel();       // 
-	  TrackMap();               //  These three lines do the main tracking work.
-	  UpdateMotionModel();      // 
+	  {
+		if(mbUseSBIInit)
+		CalcSBIRotation();
+	    ApplyMotionModel();       //  应用运动模型预测位置
+	    TrackMap();               //  These three lines do the main tracking work. 在预测的基础上进一步的优化
+	    UpdateMotionModel();      //  优化的结果更新运行模型 v = (pk + pk-1)/2
 	  
-	  AssessTrackingQuality();  //  Check if we're lost or if tracking is poor.
+	    AssessTrackingQuality();  //  Check if we're lost or if tracking is poor. 计算跟踪的质量
 	  
-	  { // Provide some feedback for the user:
-	    mMessageForUser << "Tracking Map, quality ";
-	    if(mTrackingQuality == GOOD)  mMessageForUser << "good.";
-	    if(mTrackingQuality == DODGY) mMessageForUser << "poor.";
-	    if(mTrackingQuality == BAD)   mMessageForUser << "bad.";
-	    mMessageForUser << " Found:";
-	    for(int i=0; i<LEVELS; i++) mMessageForUser << " " << manMeasFound[i] << "/" << manMeasAttempted[i];
+	    { // Provide some feedback for the user:
+	      mMessageForUser << "Tracking Map, quality ";
+		  if(mTrackingQuality == GOOD)  mMessageForUser << "good.";
+		  if(mTrackingQuality == DODGY) mMessageForUser << "poor.";
+		  if(mTrackingQuality == BAD)   mMessageForUser << "bad.";
+		  mMessageForUser << " Found:";
+		  for(int i=0; i<LEVELS; i++) mMessageForUser << " " << manMeasFound[i] << "/" << manMeasAttempted[i];
 	    //	    mMessageForUser << " Found " << mnMeasFound << " of " << mnMeasAttempted <<". (";
-	    mMessageForUser << " Map: " << mMap.vpPoints.size() << "P, " << mMap.vpKeyFrames.size() << "KF";
-	  }
+		  mMessageForUser << " Map: " << mMap.vpPoints.size() << "P, " << mMap.vpKeyFrames.size() << "KF";
+	    }
 	  
 	  // Heuristics to check if a key-frame should be added to the map:
-	  if(mTrackingQuality == GOOD &&
+	  // 判断当前帧是否能最为关键帧，能则加入关键帧
+	    if(mTrackingQuality == GOOD &&
 	     mMapMaker.NeedNewKeyFrame(mCurrentKF) &&
 	     mnFrame - mnLastKeyFrameDropped > 20  &&
 	     mMapMaker.QueueSize() < 3)
@@ -157,20 +159,21 @@ void Tracker::TrackFrame(Image<byte> &imFrame, bool bDraw)
 	      mMessageForUser << " Adding key-frame.";
 	      AddNewKeyFrame();
 	    };
-	}
+	  } 
+	  //如果跟踪丢失 则尝试恢复
       else  // what if there is a map, but tracking has been lost?
-	{
-	  mMessageForUser << "** Attempting recovery **.";
-	  if(AttemptRecovery())
+	  {
+		mMessageForUser << "** Attempting recovery **.";
+		if(AttemptRecovery())
 	    {
 	      TrackMap();
 	      AssessTrackingQuality();
 	    }
-	}
+	  }
       if(mbDraw)
 	RenderGrid();
     } 
-  else // If there is no map, try to make one.
+  else // If there is no map, try to make one.  如果没有地图，则创建地图
     TrackForInitialMap(); 
   
   // GUI interface
@@ -187,6 +190,7 @@ void Tracker::TrackFrame(Image<byte> &imFrame, bool bDraw)
 // it has no idea where it is, so graphics will go a bit 
 // crazy when lost. Could use a tighter SSD threshold and return more false,
 // but the way it is now gives a snappier response and I prefer it.
+// 尝试重定位
 bool Tracker::AttemptRecovery()
 {
   bool bRelocGood = mRelocaliser.AttemptRecovery(mCurrentKF);
@@ -446,6 +450,7 @@ int Tracker::TrailTracking_Advance()
 // A lot of low-level functionality is split into helper classes:
 // class TrackerData handles the projection of a MapPoint and stores intermediate results;
 // class PatchFinder finds a projected MapPoint in the current-frame-KeyFrame.
+// 跟踪地图 
 void Tracker::TrackMap()
 {
   // Some accounting which will be used for tracking quality assessment:
@@ -723,6 +728,7 @@ void Tracker::TrackMap()
     }
   
   // Finally, find the mean scene depth from tracked features
+  //计算当前帧的平均深度和深度方差
   {
     double dSum = 0;
     double dSumSq = 0;
@@ -945,6 +951,7 @@ void Tracker::AddNewKeyFrame()
 // Some heuristics to decide if tracking is any good, for this frame.
 // This influences decisions to add key-frames, and eventually
 // causes the tracker to attempt relocalisation.
+// 估计跟踪质量的好坏
 void Tracker::AssessTrackingQuality()
 {
   int nTotalAttempted = 0;
@@ -1002,6 +1009,7 @@ string Tracker::GetMessageForUser()
   return mMessageForUser.str();
 }
 
+//通过SBI来两帧之间的旋转
 void Tracker::CalcSBIRotation()
 {
   mpSBILastFrame->MakeJacs();

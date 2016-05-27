@@ -40,6 +40,8 @@ struct HomographyDecomposition
   int nScore;
 };
 
+//主要功能为通过对应的2D图像匹配来，是计算单应矩阵，并根据单应矩阵计算出对应的R 和 T
+//最终的结果为SE3
 class HomographyInit
 {
 public:

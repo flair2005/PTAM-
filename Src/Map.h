@@ -30,9 +30,9 @@ struct Map
   void MoveBadPointsToTrash();
   void EmptyTrash();
   
-  std::vector<MapPoint*> vpPoints;
-  std::vector<MapPoint*> vpPointsTrash;
-  std::vector<KeyFrame*> vpKeyFrames;
+  std::vector<MapPoint*> vpPoints;         //地图点
+  std::vector<MapPoint*> vpPointsTrash;	   //Trash(垃圾点)bad point
+  std::vector<KeyFrame*> vpKeyFrames;      //关键帧
 
   bool bGood;
 };

@@ -67,7 +67,7 @@ struct Level
   std::vector<CVD::ImageRef> vMaxCorners;  // The maximal FAST corners							普通的FAST经过非极大值抑制之后留下来的角点
   Level& operator=(const Level &rhs);
   
-  std::vector<Candidate> vCandidates;   // Potential locations of new map points				该层的潜在的地图点的信息
+  std::vector<Candidate> vCandidates;   // Potential locations of new map points				该层的潜在的地图点的信息(Shi-Tomasi Score大于某一阈值的点)
   
   bool bImplaneCornersCached;           // Also keep image-plane (z=1) positions of FAST corners to speed up epipolar search
   std::vector<Vector<2> > vImplaneCorners; // Corner points un-projected into z=1-plane coordinates
@@ -90,6 +90,7 @@ struct KeyFrame
   //从图像生成关键帧 包括构建金字塔和tracker线程需要的所有信息
   void MakeKeyFrame_Lite(CVD::BasicImage<CVD::byte> &im);   // This takes an image and calculates pyramid levels etc to fill the 
                                                             // keyframe data structures with everything that's needed by the tracker..
+  //从图像中生成MapMaker类需要的信息 主要是非极大值印制和选择可能的地图点
   void MakeKeyFrame_Rest();                                 // ... while this calculates the rest of the data which the mapmaker needs.
   
   double dSceneDepthMean;      // Hacky hueristics to improve epipolar search.   关键帧深度的均值

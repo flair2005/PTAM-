@@ -23,28 +23,29 @@ TrackerData(MapPoint *pMapPoint)
   PatchFinder Finder;
   
   // Projection itermediates:
-  Vector<3> v3Cam;        // Coords in current cam frame
-  Vector<2> v2ImPlane;    // Coords in current cam z=1 plane
-  Vector<2> v2Image;      // Pixel coords in LEVEL0
-  Matrix<2> m2CamDerivs;  // Camera projection derivs
+  Vector<3> v3Cam;        // Coords in current cam frame		当前摄像机坐标系
+  Vector<2> v2ImPlane;    // Coords in current cam z=1 plane    当前摄像机Z=1平面的坐标系
+  Vector<2> v2Image;      // Pixel coords in LEVEL0				金字塔0层的像素坐标
+  Matrix<2> m2CamDerivs;  // Camera projection derivs           摄像机投影导数
   bool bInImage;        
   bool bPotentiallyVisible;
   
-  int nSearchLevel;
-  bool bSearched;
-  bool bFound;
-  bool bDidSubPix;
-  Vector<2> v2Found;      // Pixel coords of found patch (L0)
+  int nSearchLevel;												//搜查的金字塔层数
+  bool bSearched;												//是否搜查过
+  bool bFound;													//是否找到
+  bool bDidSubPix;												//是否做亚像素提取
+  Vector<2> v2Found;      // Pixel coords of found patch (L0)   找到的patch的像素坐标  
   double dSqrtInvNoise;   // Only depends on search level..
   
   
   // Stuff for pose update:
   Vector<2> v2Error_CovScaled;
-  Matrix<2,6> m26Jacobian;   // Jacobian wrt camera position
+  Matrix<2,6> m26Jacobian;   // Jacobian wrt camera position    相对于相机位置的Jacobian矩阵
   
   // Project point into image given certain pose and camera.
   // This can bail out at several stages if the point
   // will not be properly in the image.
+  // 把世界坐标系中的点投影到图像坐标系
   inline void Project(const SE3<> &se3CFromW, ATANCamera &Cam)
   {
     bInImage = bPotentiallyVisible = false;
@@ -83,6 +84,7 @@ TrackerData(MapPoint *pMapPoint)
   // Jacobian of projection W.R.T. the camera position
   // I.e. if  p_cam = SE3Old * p_world, 
   //         SE3New = SE3Motion * SE3Old
+  // 投影相对于相机位置的jacobian矩阵
   inline void CalcJacobian()
   {
     double dOneOverCameraZ = 1.0 / v3Cam[2];

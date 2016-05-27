@@ -599,12 +599,12 @@ vector<CalibImage::ErrorAndJacobians> CalibImage::Project(ATANCamera &Camera)
       v3World[2] = 0.0;
       v3World.slice<0,2>() = vec(mvGridCorners[n].irGridPos);
       
-      Vector<3> v3Cam = mse3CamFromWorld * v3World;
+      Vector<3> v3Cam = mse3CamFromWorld * v3World;   			//摄像机坐标系中的坐标点
       if(v3Cam[2] <= 0.001)
 	continue;
       
-      Vector<2> v2Image = Camera.Project(project(v3Cam));
-      if(Camera.Invalid())
+      Vector<2> v2Image = Camera.Project(project(v3Cam));       //project函数 把摄像机坐标系中的点，投影到摄像机坐标系z=1的平面
+      if(Camera.Invalid())										//unproject函数 把
 	continue;
       
       EAJ.v2Error = mvGridCorners[n].Params.v2Pos - v2Image;

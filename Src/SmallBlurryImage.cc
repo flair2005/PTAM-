@@ -37,7 +37,8 @@ void SmallBlurryImage::MakeFromKF(KeyFrame &kf, double dBlur)
   mimTemplate.resize(mirSize);
   
   mbMadeJacs = false;
-  halfSample(kf.aLevels[3].im, mimSmall);
+  halfSample(kf.aLevels[3].im, mimSmall);  //得到缩小之后的图像
+  //求缩小之后的图像的均值
   ImageRef ir;
   unsigned int nSum = 0;
   do
@@ -46,16 +47,20 @@ void SmallBlurryImage::MakeFromKF(KeyFrame &kf, double dBlur)
   
   float fMean = ((float) nSum) / mirSize.area();
   
+  //在mimSmall的基础上减去图像的均值(可以去除光照影响)
   ir.home();
   do
     mimTemplate[ir] = mimSmall[ir] - fMean;
   while(ir.next(mirSize));
   
+  //用高斯模糊
   convolveGaussian(mimTemplate, dBlur);
 }
 
 // Make the jacobians (actually, no more than a gradient image)
 // of the blurred template
+// 计算模糊之后的图像的jacobian矩阵
+// 即计算图像的X和Y方向上的一阶导数
 void SmallBlurryImage::MakeJacs()
 {
   mimImageJacs.resize(mirSize);
@@ -79,6 +84,7 @@ void SmallBlurryImage::MakeJacs()
 
 // Calculate the zero-mean SSD between one image and the next.
 // Since both are zero mean already, just calculate the SSD...
+// 计算两帧SBI的SSD值
 double SmallBlurryImage::ZMSSD(SmallBlurryImage &other)
 {
   double dSSD = 0.0;
@@ -95,6 +101,7 @@ double SmallBlurryImage::ZMSSD(SmallBlurryImage &other)
 
 // Find an SE2 which best aligns an SBI to a target
 // Do this by ESM-tracking a la Benhimane & Malis
+// 迭代优化先对与另外一个SBI的位姿SE2
 pair<SE2<>,double> SmallBlurryImage::IteratePosRelToTarget(SmallBlurryImage &other, int nIterations)
 {
   SE2<> se2CtoC;
@@ -207,6 +214,7 @@ pair<SE2<>,double> SmallBlurryImage::IteratePosRelToTarget(SmallBlurryImage &oth
 
 // What is the 3D camera rotation (zero trans) SE3<> which causes an
 // input image SO2 rotation?
+// 从图像的SE2运动中恢复出SE3运动(这个SE3是纯旋转的运动)
 SE3<> SmallBlurryImage::SE3fromSE2(SE2<> se2, ATANCamera camera) 
 {
   // Do this by projecting two points, and then iterating the SE3<> (SO3
